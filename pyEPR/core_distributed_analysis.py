@@ -150,6 +150,7 @@ class DistributedAnalysis(object):
 
         # Modes and variations - the following get updated in update_variation_information
         self.n_modes = int(1)  # : Number of eigenmodes
+        self.modes = None
         #: List of variation indecies, which are strings of ints, such as ['0', '1']
         self.variations = []
         self.variations_analyzed = []  # : List of analyzed variations. List of indecies
@@ -1124,6 +1125,13 @@ class DistributedAnalysis(object):
             eprd = epr.DistributedAnalysis(pinfo)
             eprd.do_EPR_analysis(append_analysis=False)
         """
+        if not modes is None:
+            assert max(modes) < self.n_modes, 'Non-existing mode selected. \n'\
+                f'The possible modes are between 0 and {self.n_modes-1}.'
+            if len(modes) != len(set(modes)):
+                logger.warn(f'Select each mode only once! Fixing...\n'\
+                    'modes: {modes} --> {list(set(modes))}')
+                modes = list(set(modes))
 
         # Track the total timing
         self._run_time = time.strftime('%Y%m%d_%H%M%S', time.localtime())
@@ -1132,6 +1140,7 @@ class DistributedAnalysis(object):
         self.update_ansys_info()
         variations = variations or self.variations
         modes = modes or range(self.n_modes)
+        self.modes = modes
 
         self.pinfo.save()
 
@@ -1253,26 +1262,26 @@ class DistributedAnalysis(object):
                                                          self.U_E)
 
                 # get seam Q
-                if self.pinfo.dissipative.seams:
-                    for seam in self.pinfo.dissipative.seams:
+                if self.pinfo.dissipative['seams']:
+                    for seam in self.pinfo.dissipative['seams']:
                         sol = sol.append(self.get_Qseam(seam, mode, variation, self.U_H))
 
                 # get Q dielectric
-                if self.pinfo.dissipative.dielectrics_bulk:
-                    for dielectric in self.pinfo.dissipative.dielectrics_bulk:
+                if self.pinfo.dissipative['dielectrics_bulk']:
+                    for dielectric in self.pinfo.dissipative['dielectrics_bulk']:
                         sol = sol.append(self.get_Qdielectric(
                             dielectric, mode, variation, self.U_E))
 
                 # get Q surface
-                if self.pinfo.dissipative.resistive_surfaces:
-                    if self.pinfo.dissipative.resistive_surfaces == 'all':
+                if self.pinfo.dissipative['resistive_surfaces']:
+                    if self.pinfo.dissipative['resistive_surfaces'] == 'all':
                         sol = sol.append(
                             self.get_Qsurface_all(mode, variation, self.U_E))
                     else:
                         raise NotImplementedError(
                             "Join the team, by helping contribute this piece of code.")
 
-                if self.pinfo.dissipative.resistive_surfaces is not None:
+                if self.pinfo.dissipative['resistive_surfaces'] is not None:
                     raise NotImplementedError(
                         "Join the team, by helping contribute this piece of code.")
 
@@ -1313,6 +1322,7 @@ class DistributedAnalysis(object):
         self.results[variation]['Qs'] = Qs_bare
         self.results[variation]['freqs_hfss_GHz'] = freqs_bare_GHz
         self.results[variation]['hfss_variables'] = _hfss_variables
+        self.results[variation]['modes'] = self.modes
 
         # mostly for debug info
         self.results[variation]['I_peak'] = pd.Series(I_peak)
